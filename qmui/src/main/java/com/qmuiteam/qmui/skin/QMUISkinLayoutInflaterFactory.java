@@ -52,6 +52,13 @@ public class QMUISkinLayoutInflaterFactory implements LayoutInflater.Factory2 {
         mOriginLayoutInflater = originLayoutInflater;
     }
 
+    public QMUISkinLayoutInflaterFactory cloneForLayoutInflaterIfNeeded(LayoutInflater layoutInflater){
+        if(mOriginLayoutInflater.getContext() == layoutInflater.getContext()){
+            return this;
+        }
+        return new QMUISkinLayoutInflaterFactory(mActivityWeakReference.get(), layoutInflater);
+    }
+
     @Override
     public View onCreateView(View parent, String name, Context context, AttributeSet attrs) {
         Activity activity = mActivityWeakReference.get();
@@ -64,19 +71,22 @@ public class QMUISkinLayoutInflaterFactory implements LayoutInflater.Factory2 {
             try{
                 if (!name.contains(".")) {
                     if(sSuccessClassNamePrefixMap.containsKey(name)){
-                        view = LayoutInflater.from(context)
+                        view = mOriginLayoutInflater
                                 .createView(name, sSuccessClassNamePrefixMap.get(name), attrs);
                     }else{
                         for (String prefix : sClassPrefixList) {
-                            view = mOriginLayoutInflater.createView(name, prefix, attrs);
-                            if (view != null) {
-                                sSuccessClassNamePrefixMap.put(name, prefix);
-                                break;
+                            try {
+                                view = mOriginLayoutInflater.createView(name, prefix, attrs);
+                                if (view != null) {
+                                    sSuccessClassNamePrefixMap.put(name, prefix);
+                                    break;
+                                }
+                            } catch (Exception ignored) {
                             }
                         }
                     }
                 }else{
-                    view = mOriginLayoutInflater.createView(name, null, attrs);
+                    view = mOriginLayoutInflater.cloneInContext(context).createView(name, null, attrs);
                 }
             }catch (ClassNotFoundException ignore){
 

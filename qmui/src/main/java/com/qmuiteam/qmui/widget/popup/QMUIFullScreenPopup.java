@@ -17,7 +17,6 @@
 package com.qmuiteam.qmui.widget.popup;
 
 import android.animation.ValueAnimator;
-import android.annotation.TargetApi;
 import android.content.Context;
 import android.graphics.Rect;
 import android.graphics.drawable.Drawable;
@@ -27,6 +26,11 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowManager;
 import android.widget.ImageView;
+
+import androidx.annotation.Nullable;
+import androidx.constraintlayout.widget.ConstraintLayout;
+import androidx.core.view.GestureDetectorCompat;
+import androidx.core.view.WindowInsetsCompat;
 
 import com.qmuiteam.qmui.QMUIInterpolatorStaticHolder;
 import com.qmuiteam.qmui.R;
@@ -42,10 +46,6 @@ import com.qmuiteam.qmui.widget.IWindowInsetKeyboardConsumer;
 import com.qmuiteam.qmui.widget.QMUIWindowInsetLayout2;
 
 import java.util.ArrayList;
-
-import androidx.annotation.Nullable;
-import androidx.constraintlayout.widget.ConstraintLayout;
-import androidx.core.view.GestureDetectorCompat;
 
 import static android.view.WindowManager.LayoutParams.FLAG_LAYOUT_INSET_DECOR;
 import static android.view.WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN;
@@ -82,6 +82,7 @@ public class QMUIFullScreenPopup extends QMUIBasePopup<QMUIFullScreenPopup> {
         super(context);
         mWindow.setWidth(ViewGroup.LayoutParams.MATCH_PARENT);
         mWindow.setHeight(ViewGroup.LayoutParams.MATCH_PARENT);
+        mWindow.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
         dimAmount(0.6f);
     }
 
@@ -182,7 +183,14 @@ public class QMUIFullScreenPopup extends QMUIBasePopup<QMUIFullScreenPopup> {
         return closeBtn;
     }
 
+    public boolean isShowing(){
+        return mWindow.isShowing();
+    }
+
     public void show(View parent) {
+        if(isShowing()){
+            return;
+        }
         if (mViews.isEmpty()) {
             throw new RuntimeException("you should call addView() to add content view");
         }
@@ -279,10 +287,8 @@ public class QMUIFullScreenPopup extends QMUIBasePopup<QMUIFullScreenPopup> {
         }
 
         @Override
-        @TargetApi(21)
-        public boolean applySystemWindowInsets21(Object insets) {
-            super.applySystemWindowInsets21(insets);
-            return true;
+        public WindowInsetsCompat applySystemWindowInsets21(WindowInsetsCompat insets) {
+            return super.applySystemWindowInsets21(insets).consumeStableInsets();
         }
 
         @Override

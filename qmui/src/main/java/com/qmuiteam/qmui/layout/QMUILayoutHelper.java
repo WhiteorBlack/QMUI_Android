@@ -180,7 +180,7 @@ public class QMUILayoutHelper implements IQMUILayout {
                 } else if (index == R.styleable.QMUILayout_qmui_outerNormalColor) {
                     mOuterNormalColor = ta.getColor(index, mOuterNormalColor);
                 } else if (index == R.styleable.QMUILayout_qmui_hideRadiusSide) {
-                    mHideRadiusSide = ta.getColor(index, mHideRadiusSide);
+                    mHideRadiusSide = ta.getInt(index, mHideRadiusSide);
                 } else if (index == R.styleable.QMUILayout_qmui_showBorderOnlyBeforeL) {
                     mIsShowBorderOnlyBeforeL = ta.getBoolean(index, mIsShowBorderOnlyBeforeL);
                 } else if (index == R.styleable.QMUILayout_qmui_shadowElevation) {
@@ -451,7 +451,12 @@ public class QMUILayoutHelper implements IQMUILayout {
                     if (w == 0 || h == 0) {
                         return;
                     }
-                    int radius = getRealRadius();
+                    float radius = getRealRadius();
+                    int min = Math.min(w, h);
+                    if (radius * 2 > min) {
+                        // 解决 OnePlus 3T 8.0 上显示变形
+                        radius = min / 2F;
+                    }
                     if (mShouldUseRadiusArray) {
                         int left = 0, top = 0, right = w, bottom = h;
                         if (mHideRadiusSide == HIDE_RADIUS_SIDE_LEFT) {

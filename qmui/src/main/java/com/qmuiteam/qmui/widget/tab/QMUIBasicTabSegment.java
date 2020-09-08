@@ -132,6 +132,7 @@ public class QMUIBasicTabSegment extends HorizontalScrollView implements IQMUILa
 
     protected QMUITabBuilder mTabBuilder;
 
+    private boolean mSelectNoAnimation;
     protected Animator mSelectAnimator;
     private OnTabClickListener mOnTabClickListener;
 
@@ -196,6 +197,7 @@ public class QMUIBasicTabSegment extends HorizontalScrollView implements IQMUILa
         mMode = array.getInt(R.styleable.QMUITabSegment_qmui_tab_mode, MODE_FIXED);
         mItemSpaceInScrollMode = array.getDimensionPixelSize(
                 R.styleable.QMUITabSegment_qmui_tab_space, QMUIDisplayHelper.dp2px(context, 10));
+        mSelectNoAnimation = array.getBoolean(R.styleable.QMUITabSegment_qmui_tab_select_no_animation, false);
         array.recycle();
 
 
@@ -266,6 +268,17 @@ public class QMUIBasicTabSegment extends HorizontalScrollView implements IQMUILa
         }
     }
 
+    /**
+     * clear select info
+     */
+    public void resetSelect() {
+        mCurrentSelectedIndex = NO_POSITION;
+        if (mSelectAnimator != null) {
+            mSelectAnimator.cancel();
+            mSelectAnimator = null;
+        }
+    }
+
 
     /**
      * add a tab to QMUITabSegment
@@ -283,7 +296,10 @@ public class QMUIBasicTabSegment extends HorizontalScrollView implements IQMUILa
      * notify dataChanged event to QMUITabSegment
      */
     public void notifyDataChanged() {
+        int current = mCurrentSelectedIndex;
+        resetSelect();
         mTabAdapter.setup();
+        selectTab(current);
     }
 
     public void addOnTabSelectedListener(@NonNull OnTabSelectedListener listener) {
@@ -315,16 +331,20 @@ public class QMUIBasicTabSegment extends HorizontalScrollView implements IQMUILa
     }
 
 
-    void onClickTab(int index) {
+    protected void onClickTab(QMUITabView view, int index) {
         if (mSelectAnimator != null || needPreventEvent()) {
             return;
         }
+
+        if (mOnTabClickListener != null) {
+            if (mOnTabClickListener.onTabClick(view, index)) {
+                return;
+            }
+        }
+
         QMUITab model = mTabAdapter.getItem(index);
         if (model != null) {
-            selectTab(index, false, true);
-        }
-        if (mOnTabClickListener != null) {
-            mOnTabClickListener.onTabClick(index);
+            selectTab(index, mSelectNoAnimation, true);
         }
     }
 
@@ -368,8 +388,12 @@ public class QMUIBasicTabSegment extends HorizontalScrollView implements IQMUILa
         }
     }
 
+    public void setSelectNoAnimation(boolean noAnimation) {
+        mSelectNoAnimation = noAnimation;
+    }
+
     public void selectTab(int index) {
-        selectTab(index, false, false);
+        selectTab(index, mSelectNoAnimation, false);
     }
 
     public void selectTab(final int index, boolean noAnimation, boolean fromTabClick) {
@@ -417,7 +441,11 @@ public class QMUIBasicTabSegment extends HorizontalScrollView implements IQMUILa
         if (mCurrentSelectedIndex == NO_POSITION) {
             QMUITab model = mTabAdapter.getItem(index);
             layoutIndicator(model, true);
-            listViews.get(index).setSelectFraction(1f);
+            
+            QMUITabView tabView = listViews.get(index);
+            tabView.setSelected(true); // 标记选中，使得TalkBack等屏幕阅读器可向用户报告tab状态
+            tabView.setSelectFraction(1f);
+            
             dispatchTabSelected(index);
             mCurrentSelectedIndex = index;
             mIsInSelectTab = false;
@@ -434,7 +462,9 @@ public class QMUIBasicTabSegment extends HorizontalScrollView implements IQMUILa
             dispatchTabUnselected(prev);
             dispatchTabSelected(index);
             prevView.setSelectFraction(0f);
+            prevView.setSelected(false); // 标记未选中，使得TalkBack等屏幕阅读器可向用户报告tab状态
             nowView.setSelectFraction(1f);
+            nowView.setSelected(true); // 标记选中，使得TalkBack等屏幕阅读器可向用户报告tab状态
             if (mMode == MODE_SCROLLABLE) {
                 int scrollX = getScrollX(),
                         w = getWidth(),
@@ -493,12 +523,15 @@ public class QMUIBasicTabSegment extends HorizontalScrollView implements IQMUILa
 
             @Override
             public void onAnimationEnd(Animator animation) {
-                mSelectAnimator = null;
                 prevView.setSelectFraction(0f);
+                prevView.setSelected(false); // 标记未选中，使得TalkBack等屏幕阅读器可向用户报告tab状态
                 nowView.setSelectFraction(1f);
+nowView.setSelected(true); // 标记选中，使得TalkBack等屏幕阅读器可向用户报告tab状态
+                mSelectAnimator = null;
+                // set current selected index first, dispatchTabSelected may call selectTab again.
+                mCurrentSelectedIndex = index;
                 dispatchTabSelected(index);
                 dispatchTabUnselected(prev);
-                mCurrentSelectedIndex = index;
                 if (mPendingSelectedIndex != NO_POSITION && !needPreventEvent()) {
                     selectTab(mPendingSelectedIndex, true, false);
                     mPendingSelectedIndex = NO_POSITION;
@@ -509,7 +542,9 @@ public class QMUIBasicTabSegment extends HorizontalScrollView implements IQMUILa
             public void onAnimationCancel(Animator animation) {
                 mSelectAnimator = null;
                 prevView.setSelectFraction(1f);
+                prevView.setSelected(true); // 标记选中，使得TalkBack等屏幕阅读器可向用户报告tab状态
                 nowView.setSelectFraction(0f);
+                nowView.setSelected(false); // 标记未选中，使得TalkBack等屏幕阅读器可向用户报告tab状态
                 layoutIndicator(prevModel, true);
 
             }
@@ -528,7 +563,7 @@ public class QMUIBasicTabSegment extends HorizontalScrollView implements IQMUILa
         if (model == null || mIndicator == null) {
             return;
         }
-        mIndicator.updateInfo(model.contentLeft, model.contentWidth, model.selectedColorAttr == 0 ? model.selectColor : QMUISkinHelper.getSkinColor(this, model.selectedColorAttr));
+        mIndicator.updateInfo(model.contentLeft, model.contentWidth, model.selectedColorAttr == 0 ? model.selectColor : QMUISkinHelper.getSkinColor(this, model.selectedColorAttr), 0f);
         if (invalidate) {
             mContentLayout.invalidate();
         }
@@ -546,7 +581,7 @@ public class QMUIBasicTabSegment extends HorizontalScrollView implements IQMUILa
                 preModel.selectedColorAttr == 0 ? preModel.selectColor : QMUISkinHelper.getSkinColor(this, preModel.selectedColorAttr),
                 targetModel.selectedColorAttr == 0 ? targetModel.selectColor : QMUISkinHelper.getSkinColor(this, targetModel.selectedColorAttr),
                 offsetPercent);
-        mIndicator.updateInfo(targetLeft, targetWidth, indicatorColor);
+        mIndicator.updateInfo(targetLeft, targetWidth, indicatorColor, offsetPercent);
         mContentLayout.invalidate();
     }
 
@@ -705,9 +740,12 @@ public class QMUIBasicTabSegment extends HorizontalScrollView implements IQMUILa
         /**
          * 当某个 Tab 被点击时会触发
          *
+         * @param tabView 被点击的View
          * @param index 被点击的 Tab 下标
+         *
+         * @return true 拦截 selectTab 事件
          */
-        void onTabClick(int index);
+        boolean onTabClick(QMUITabView tabView, int index);
     }
 
     public interface OnTabSelectedListener {
